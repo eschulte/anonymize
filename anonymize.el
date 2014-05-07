@@ -51,10 +51,10 @@
 ;;;###autoload
 (defun anonymize-region (beg end)
   "Anonymize the source code between BEG and END."
-  ;; remove all comments
-  (anon-comments-region beg end)
-  ;; enforce uniform indentation
-  (indent-region beg end)
+  ;; ;; remove all comments
+  ;; (anon-comments-region beg end)
+  ;; ;; enforce uniform indentation
+  ;; (indent-region beg end)
   ;; re-write element (variable and function) names
   (anon-rewrite-elements beg end))
 
@@ -68,14 +68,8 @@
 ;;; C-specific
 
 (defvar anon-C-external-functions-rx
-  "^extern\\( \*?\\([^\*([:space:]]\+\\)\\)\+ ?("
+  "^extern\\( \\([^([:space:]]\+\\)\\)\+ ?("
   "Match the names of external functions in a C header file.")
-
-(defun anon-get-C-external-functions ()
-  (save-excursion
-    (goto-char (point-min))
-    (cl-loop while (re-search-forward anon-C-external-functions-rx nil t)
-             collect (match-string 2))))
 
 (defvar anon-C-include-rx
   "\#include \\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
@@ -86,6 +80,17 @@
     "/usr/include/linux")
   "Paths to standard C libraries.")
 
+(defun anon-get-C-external-functions ()
+  (save-excursion
+    (goto-char (point-min))
+    (mapcar
+     (lambda (name)                          ; strip any leading stars
+       (if (string-match "^\*" name)
+           (substring name 1)
+           name))
+     (cl-loop while (re-search-forward anon-C-external-functions-rx nil t)
+             collect (match-string-no-properties 2)))))
+
 (defun anon-C-resolve-include-dir (file)
   (catch 'found
     (mapc (lambda (dir)
@@ -94,13 +99,15 @@
           anon-C-include-dirs)))
 
 (defun anon-C-includes ()
+  "Return included headers for the current file."
   (save-excursion
     (goto-char (point-min))
     (cl-loop while (re-search-forward anon-C-include-rx nil t)
              collect
-             (if (match-string 2)
-                 (anon-C-resolve-include-dir (match-string 2))
-               (expand-file-name (match-string 3) default-directory)))))
+             (if (match-string-no-properties 2)
+                 (anon-C-resolve-include-dir (match-string-no-properties 2))
+               (expand-file-name (match-string-no-properties 3)
+                                 default-directory)))))
 
 (defun anon-C-reserved-names ()
   (cl-remove-duplicates
@@ -140,7 +147,7 @@
         (remove nil
           (cl-loop while (re-search-forward word-rx end t)
                    collect
-                   (let ((token (org-match-string-no-properties 1)))
+                   (let ((token (match-string-no-properties 1)))
                      (when (and (save-excursion
                                   (backward-char 1)
                                   (let ((f (face-at-point)))
