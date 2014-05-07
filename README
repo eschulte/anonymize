@@ -1,0 +1,15 @@
+                              anonymize
+                       (anonymize source code)
+
+DESCRIPTION
+
+    A source to source translation which preserves program semantics
+    while removing all identifying information by removing comments,
+    enforcing uniform indentation, and re-writing element names.
+
+REQUIREMENTS
+    Emacs 24 or later including language support for the programming
+    language to be anonymized.
+
+USAGE
+    $ anonymize input.c -o anonymous.c
