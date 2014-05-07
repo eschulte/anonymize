@@ -189,3 +189,5 @@
                 (while (re-search-forward rx end t)
                   (replace-match rep nil 'literal nil 2))))
             elements))))
+
+(provide 'anonymize)
