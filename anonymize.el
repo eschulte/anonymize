@@ -118,12 +118,13 @@
   "Return included headers for the current file."
   (save-excursion
     (goto-char (point-min))
-    (cl-loop while (re-search-forward anon-C-include-rx nil t)
-             collect
-             (if (match-string-no-properties 2)
-                 (anon-C-resolve-include-dir (match-string-no-properties 2))
-               (expand-file-name (match-string-no-properties 3)
-                                 default-directory)))))
+    (remove nil
+      (cl-loop while (re-search-forward anon-C-include-rx nil t)
+               collect
+               (if (match-string-no-properties 2)
+                   (anon-C-resolve-include-dir (match-string-no-properties 2))
+                 (expand-file-name (match-string-no-properties 3)
+                                   default-directory))))))
 
 (defun anon-C-reserved-names ()
   (cl-remove-duplicates
