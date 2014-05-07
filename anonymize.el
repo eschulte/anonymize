@@ -85,6 +85,8 @@
     "/usr/include/linux")
   "Paths to standard C libraries.")
 
+(defvar anon-C-non-word-chars "-+\*&|!=><;(),[:space:]#{}\r\n\.")
+
 (defun anon-get-C-external-symbols ()
   (save-excursion
     (mapcar
@@ -129,8 +131,6 @@
                  (anon-get-C-external-symbols)))
              (anon-C-includes)))
    :test #'string=))
-
-(defvar anon-C-non-word-chars "-+\*&|!=><;(),[:space:]#{}\r\n")
 
 (defun anon-literalp (string)
   (or
