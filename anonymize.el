@@ -52,10 +52,10 @@
 ;;;###autoload
 (defun anonymize-region (beg end)
   "Anonymize the source code between BEG and END."
-  ;; ;; remove all comments
-  ;; (anon-comments-region beg end)
-  ;; ;; enforce uniform indentation
-  ;; (indent-region beg end)
+  ;; remove all comments
+  (anon-comments-region beg end)
+  ;; enforce uniform indentation
+  (indent-region beg end)
   ;; re-write element (variable and function) names
   (anon-rewrite-elements beg end))
 
