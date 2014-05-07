@@ -82,7 +82,8 @@
 
 (defvar anon-C-include-dirs
   '("/usr/include/"
-    "/usr/include/linux")
+    "/usr/include/linux"
+    "/usr/include/unistring")
   "Paths to standard C libraries.")
 
 (defvar anon-C-non-word-chars "-+\*&|!=><;(),[:space:]#{}\r\n\.")
@@ -109,7 +110,9 @@
     (mapc (lambda (dir)
             (when (file-exists-p (expand-file-name file dir))
               (throw 'found (expand-file-name file dir))))
-          anon-C-include-dirs)))
+          anon-C-include-dirs)
+    (warn "couldn't resolve %S in `anon-C-include-dirs'" file)
+    nil))
 
 (defun anon-C-includes ()
   "Return included headers for the current file."
