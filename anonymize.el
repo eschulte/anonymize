@@ -43,27 +43,23 @@
   (copy-file in-file out-file)
   (save-window-excursion
     (find-file out-file)
-    (anonymize-region (point-min) (point-max))
+    ;; remove all comments
+    (anon-comments-region)
+    ;; enforce uniform indentation
+    (indent-region (point-min) (point-max))
+    ;; re-write element (variable and function) names
+    (anon-rewrite-elements)
+    ;; close up shop
     (save-buffer)
     (let ((kill-buffer-hook nil)
           (kill-buffer-query-functions nil))
       (kill-buffer))))
 
-;;;###autoload
-(defun anonymize-region (beg end)
-  "Anonymize the source code between BEG and END."
-  ;; remove all comments
-  (anon-comments-region beg end)
-  ;; enforce uniform indentation
-  (indent-region beg end)
-  ;; re-write element (variable and function) names
-  (anon-rewrite-elements beg end))
-
-(defun anon-comments-region (beg end)
+(defun anon-comments-region ()
   (save-excursion
     ;; remove all comments
-    (goto-char beg)
-    (comment-kill (count-lines beg end))))
+    (goto-char (point-min))
+    (comment-kill (count-lines (point-min) (point-max)))))
 
 
 ;;; C-specific
@@ -141,13 +137,12 @@
    ;; integer literal
    (string-match "^[[:digit:]]\+$" string)))
 
-(defun anon-collect-elements (&optional beg end)
-  (let ((beg (or beg (point-min)))
-        (reserved (anon-C-reserved-names))
+(defun anon-collect-elements ()
+  (let ((reserved (anon-C-reserved-names))
         (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars))
         (vf 'font-lock-variable-name-face))
     (save-excursion
-      (goto-char beg)
+      (goto-char (point-min))
       (cl-remove-if
        #'anon-literalp
        (cl-remove-duplicates
@@ -162,7 +157,7 @@
                                                 r " " word)) 
                                         " " 'omit-nulls)))
                       (remove nil
-                        (cl-loop while (re-search-forward word-rx end t)
+                        (cl-loop while (re-search-forward word-rx nil t)
                                  collect
                                  (let ((token (match-string-no-properties 1)))
                                    (when (save-excursion
@@ -175,14 +170,13 @@
 (defvar anon-word-wrap-regex-template
   "\\(^\\|[%s]\\|\\[\\)\\(%s\\)\\([%s]\\|$\\|\\[\\|\\]\\)")
 
-(defun anon-rewrite-elements (&optional beg end)
+(defun anon-rewrite-elements ()
   (interactive "*r")
-  (let* ((beg (or beg (point-min)))
-         (case-fold-search nil)
+  (let* ((case-fold-search nil)
          (counter 0)
          (elements (anon-collect-elements)))
     (save-excursion
-      (goto-char beg)
+      (goto-char (point-min))
       ;; loop through elements, replacing them with new variable names
       (mapc (lambda (el)
               (let ((rx (format anon-word-wrap-regex-template
@@ -190,8 +184,8 @@
                                 (regexp-quote el)
                                 anon-C-non-word-chars))
                     (rep (progn (incf counter) (format "el_%d" counter))))
-                (goto-char beg)
-                (while (re-search-forward rx end t)
+                (goto-char (point-min))
+                (while (re-search-forward rx nil t)
                   (replace-match rep nil 'literal nil 2))))
             elements))))
 
