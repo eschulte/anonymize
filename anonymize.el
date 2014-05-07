@@ -67,9 +67,13 @@
 
 ;;; C-specific
 
-(defvar anon-C-external-functions-rx
-  "^extern\\( \\([^([:space:]]\+\\)\\)\+ ?("
-  "Match the names of external functions in a C header file.")
+(defvar anon-C-ext-funs-and-vars-rx
+  "^extern\\( \\([^([:space:]]\+\\)\\)\+ ?[(;]"
+  "Match the names of external functions or variables in a C header file.")
+
+(defvar anon-C-pound-defines-rx
+  "^# ?define \+\\([^[:space:]\n\r]\+\\)"
+  "Match the names of macros in a C header file.")
 
 (defvar anon-C-include-rx
   "\#include \\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
@@ -80,16 +84,22 @@
     "/usr/include/linux")
   "Paths to standard C libraries.")
 
-(defun anon-get-C-external-functions ()
+(defun anon-get-C-external-symbols ()
   (save-excursion
-    (goto-char (point-min))
     (mapcar
      (lambda (name)                          ; strip any leading stars
        (if (string-match "^\*" name)
            (substring name 1)
-           name))
-     (cl-loop while (re-search-forward anon-C-external-functions-rx nil t)
-             collect (match-string-no-properties 2)))))
+         name))
+     (append
+      (progn
+        (goto-char (point-min))
+        (cl-loop while (re-search-forward anon-C-ext-funs-and-vars-rx nil t)
+                 collect (match-string-no-properties 2)))
+      (progn
+        (goto-char (point-min))
+        (cl-loop while (re-search-forward anon-C-pound-defines-rx nil t)
+                 collect (match-string-no-properties 1)))))))
 
 (defun anon-C-resolve-include-dir (file)
   (catch 'found
@@ -115,7 +125,7 @@
      (mapcan (lambda (f)
                (with-temp-buffer
                  (insert-file-contents f)
-                 (anon-get-C-external-functions)))
+                 (anon-get-C-external-symbols)))
              (anon-C-includes)))
    :test #'string=))
 
@@ -136,25 +146,29 @@
       (cl-remove-if
        #'anon-literalp
        (cl-remove-duplicates
-       (mapcan
-        (lambda (word)
-          (let ((l (regexp-quote "]"))
-                (r (regexp-quote "[")))
-            (split-string (replace-regexp-in-string
-                           l " " (replace-regexp-in-string
-                                  r " " word)) 
-                          " " 'omit-nulls)))
         (remove nil
-          (cl-loop while (re-search-forward word-rx end t)
-                   collect
-                   (let ((token (match-string-no-properties 1)))
-                     (when (and (save-excursion
-                                  (backward-char 1)
-                                  (let ((f (face-at-point)))
-                                    (or (null f) (equal f vf))))
-                                (not (member token reserved)))
-                       token)))))
-       :test #'string=)))))
+          (remove-if (lambda (el) (member el reserved))
+                     (mapcan
+                      (lambda (word)
+                        (let ((l (regexp-quote "]"))
+                              (r (regexp-quote "[")))
+                          (split-string (replace-regexp-in-string
+                                         l " " (replace-regexp-in-string
+                                                r " " word)) 
+                                        " " 'omit-nulls)))
+                      (remove nil
+                        (cl-loop while (re-search-forward word-rx end t)
+                                 collect
+                                 (let ((token (match-string-no-properties 1)))
+                                   (when (save-excursion
+                                           (backward-char 1)
+                                           (let ((f (face-at-point)))
+                                             (or (null f) (equal f vf))))
+                                     token)))))))
+        :test #'string=)))))
+
+(defvar anon-word-wrap-regex-template
+  "\\(^\\|[%s]\\|\\[\\)\\(%s\\)\\([%s]\\|$\\|\\[\\|\\]\\)")
 
 (defun anon-rewrite-elements (&optional beg end)
   (interactive "*r")
@@ -166,7 +180,7 @@
       (goto-char beg)
       ;; loop through elements, replacing them with new variable names
       (mapc (lambda (el)
-              (let ((rx (format "\\(^\\|[%s]\\)\\(%s\\)\\([%s]\\|$\\)"
+              (let ((rx (format anon-word-wrap-regex-template
                                 anon-C-non-word-chars
                                 el
                                 anon-C-non-word-chars))
