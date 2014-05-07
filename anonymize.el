@@ -29,8 +29,9 @@
 
 ;;; Commentary:
 
-;; First pass focused only on C source files.  Will generalize once
-;; we're functional.
+;; Currently focused only on C source files.
+;;
+;; Will probably generalize across languages as the need arises.
 
 ;;; Code:
 (require 'cl-lib)
