@@ -183,7 +183,7 @@
       (mapc (lambda (el)
               (let ((rx (format anon-word-wrap-regex-template
                                 anon-C-non-word-chars
-                                el
+                                (regexp-quote el)
                                 anon-C-non-word-chars))
                     (rep (progn (incf counter) (format "el_%d" counter))))
                 (goto-char beg)
