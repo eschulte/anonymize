@@ -179,7 +179,7 @@
                       (insert-file-contents f)
                       (anon-get-C-external-symbols))
                   (prog1 nil (warn "couldn't find included file %S" f))))
-              (anon-C-includes (buffer-file-name))))
+              (anon-C-includes)))
     :test #'string=)))
 
 (defun anon-literalp (string)
