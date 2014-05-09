@@ -47,7 +47,7 @@
   (save-window-excursion
     (find-file out-file)
     ;; remove all comments
-    (anon-comments-region)
+    (anon-comments)
     ;; enforce uniform indentation
     (indent-region (point-min) (point-max))
     ;; re-write element (variable and function) names
@@ -58,11 +58,17 @@
           (kill-buffer-query-functions nil))
       (kill-buffer))))
 
-(defun anon-comments-region ()
+(defun anon-comments ()
   (save-excursion
     ;; remove all comments
     (goto-char (point-min))
-    (comment-kill (count-lines (point-min) (point-max)))))
+    (comment-kill (count-lines (point-min) (point-max)))
+    ;; remove all empty lines
+    (delete-trailing-whitespace)
+    (goto-char (point-min))
+    (while (and (re-search-forward "^$" nil t)
+                (< (point) (point-max)))
+      (delete-char 1))))
 
 
 ;;; C-specific
