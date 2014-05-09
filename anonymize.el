@@ -87,7 +87,9 @@
     "/usr/include/unistring")
   "Paths to standard C libraries.")
 
-(defvar anon-C-non-word-chars "-+\*&|!=><;(),[:space:]#{}\r\n\.")
+(defvar anon-C-non-word-chars "-+\/*&|!=><;(),[:space:]#{}\r\n\.")
+
+(defvar anon-C-builtins '())
 
 (defun anon-get-C-external-symbols ()
   (save-excursion
@@ -128,16 +130,18 @@
                                    default-directory))))))
 
 (defun anon-C-reserved-names ()
-  (cl-remove-duplicates
-   (remove nil
-     (mapcan (lambda (f)
-               (if (file-exists-p f)
-                   (with-temp-buffer
-                     (insert-file-contents f)
-                     (anon-get-C-external-symbols))
-                 (prog1 nil (warn "couldn't find included file %S" f))))
-             (anon-C-includes)))
-   :test #'string=))
+  (append
+   anon-C-builtins
+   (cl-remove-duplicates
+    (remove nil
+      (mapcan (lambda (f)
+                (if (file-exists-p f)
+                    (with-temp-buffer
+                      (insert-file-contents f)
+                      (anon-get-C-external-symbols))
+                  (prog1 nil (warn "couldn't find included file %S" f))))
+              (anon-C-includes)))
+    :test #'string=)))
 
 (defun anon-literalp (string)
   (or
