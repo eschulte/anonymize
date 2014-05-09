@@ -30,8 +30,11 @@
 ;;; Commentary:
 
 ;; Currently focused only on C source files.
-;;
 ;; Will probably generalize across languages as the need arises.
+
+;;; TODO:
+
+;; - rename tyepdef constructs
 
 ;;; Code:
 (require 'cl-lib)
