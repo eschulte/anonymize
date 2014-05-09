@@ -78,7 +78,7 @@
   "Match the names of macros in a C header file.")
 
 (defvar anon-C-include-rx
-  "\#include \\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
+  "\#include[[:space:]]*\\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
   "Match included file names.")
 
 (defvar anon-C-include-dirs
