@@ -87,7 +87,7 @@
     "/usr/include/unistring")
   "Paths to standard C libraries.")
 
-(defvar anon-C-non-word-chars "-+\/*&|!=><;(),[:space:]#{}\r\n\.")
+(defvar anon-C-non-word-chars "-+\/*&|!=><\?:;(),[:space:]#{}\r\n\.")
 
 (defvar anon-C-builtins '())
 
