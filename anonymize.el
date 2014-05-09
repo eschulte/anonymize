@@ -32,10 +32,6 @@
 ;; Currently focused only on C source files.
 ;; Will probably generalize across languages as the need arises.
 
-;;; TODO:
-
-;; - rename tyepdef constructs
-
 ;;; Code:
 (require 'cl-lib)
 
@@ -149,40 +145,46 @@
    (string-match "^[[:digit:]]\+$" string)))
 
 (defun anon-collect-elements ()
-  (let ((reserved (anon-C-reserved-names))
-        (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars))
-        (vf 'font-lock-variable-name-face))
-    (save-excursion
-      (goto-char (point-min))
-      (cl-remove-if
-       #'anon-literalp
-       (cl-remove-duplicates
-        (remove nil
-          (remove-if (lambda (el) (member el reserved))
-                     (mapcan
-                      (lambda (word)
-                        (let ((l (regexp-quote "]"))
-                              (r (regexp-quote "[")))
-                          (split-string (replace-regexp-in-string
-                                         l " " (replace-regexp-in-string
-                                                r " " word)) 
-                                        " " 'omit-nulls)))
-                      (remove nil
-                        (cl-loop while (re-search-forward word-rx nil t)
-                                 collect
-                                 (let ((token (match-string-no-properties 1)))
-                                   (when (save-excursion
-                                           (backward-char 1)
-                                           (let ((f (face-at-point)))
-                                             (or (null f) (equal f vf))))
-                                     token)))))))
-        :test #'string=)))))
+  (let* ((reserved (anon-C-reserved-names))
+         (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars))
+         (struct-rx (concat "struct[[:space:]\r\n]\+" word-rx)))
+    (cl-flet ((collect (rx face)
+                       (goto-char (point-min))
+                       (cl-loop while (re-search-forward rx nil t)
+                                collect
+                                (let ((token (match-string-no-properties 1)))
+                                  (when (save-excursion
+                                          (backward-char 1)
+                                          (let ((f (face-at-point)))
+                                            (or (null f) (equal f face))))
+                                    token)))))
+      (save-excursion
+        (cl-remove-if
+         #'anon-literalp
+         (cl-remove-duplicates
+          (remove nil
+            (remove-if (lambda (el) (member el reserved))
+                       (mapcan
+                        (lambda (word)
+                          (let ((l (regexp-quote "]"))
+                                (r (regexp-quote "[")))
+                            (split-string (replace-regexp-in-string
+                                           l " " (replace-regexp-in-string
+                                                  r " " word)) 
+                                          " " 'omit-nulls)))
+                        (remove nil
+                          (append
+                           ;; variable and function names
+                           (collect word-rx 'font-lock-variable-name-face)
+                           ;; structure names
+                           (collect struct-rx 'font-lock-type-face))))))
+          :test #'string=))))))
 
 (defvar anon-word-wrap-regex-template
   "\\(^\\|[%s]\\|\\[\\)\\(%s\\)\\([%s]\\|$\\|\\[\\|\\]\\)")
 
 (defun anon-rewrite-elements ()
-  (interactive "*r")
+  (interactive)
   (let* ((case-fold-search nil)
          (counter 0)
          (elements (anon-collect-elements)))
