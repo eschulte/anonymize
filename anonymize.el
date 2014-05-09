@@ -87,7 +87,7 @@
     "/usr/include/unistring")
   "Paths to standard C libraries.")
 
-(defvar anon-C-non-word-chars "-+\/*&|!=><\?:;(),[:space:]#{}\r\n\.")
+(defvar anon-C-non-word-chars "-+\/%*&|!=><\?:;(),[:space:]#{}\r\n\.")
 
 (defvar anon-C-builtins '())
 
@@ -117,17 +117,56 @@
     (warn "couldn't resolve %S in `anon-C-include-dirs'" file)
     nil))
 
+(defmacro in-file (file &rest body)
+  (declare (indent 1))
+  ;; - check if file is already being visited
+  ;; - ensure mode is set
+  (let ((tempvar (make-symbol "file")))
+    `(let* ((,tempvar ,file)
+	    (visited-p (or (null ,tempvar)
+			   (get-file-buffer (expand-file-name ,tempvar))))
+	    (point (point)) to-be-removed)
+       (save-window-excursion
+         (when ,tempvar (find-file ,tempvar))
+         (setq to-be-removed (current-buffer))
+         (goto-char (point-min))
+         (unwind-protect (progn ,@body)
+           (unless visited-p (kill-buffer to-be-removed))
+           (goto-char point))))))
+
+(defvar anon-C-includes-stop nil
+  "Track current and past stack of included files.")
+
+(defvar anon-C-includes-mapping nil
+  "Map include file names to lists of included files.")
+
+(defmacro anon-memoized (key map &rest body)
+  (declare (indent 2))
+  `(or (assoc ,key ,map)
+       (car (push (cons ,key (progn ,@body)) ,map))))
+
+(defun anon-C-includes-single-file (file)
+  (anon-memoized file anon-C-includes-mapping
+    (in-file file
+      (remove nil
+        (cl-loop while (re-search-forward anon-C-include-rx nil t)
+                 collect
+                 (if (match-string-no-properties 2)
+                     (anon-C-resolve-include-dir
+                      (match-string-no-properties 2))
+                   (expand-file-name (match-string-no-properties 3)
+                                     default-directory)))))))
+
+(defun annon-C-includes- (file)
+  (unless (member file anon-C-includes-stop)
+    (push file anon-C-includes-stop)
+    (cons file (mapcan #'annon-C-includes-
+                       (anon-C-includes-single-file file)))))
+
 (defun anon-C-includes ()
   "Return included headers for the current file."
-  (save-excursion
-    (goto-char (point-min))
-    (remove nil
-      (cl-loop while (re-search-forward anon-C-include-rx nil t)
-               collect
-               (if (match-string-no-properties 2)
-                   (anon-C-resolve-include-dir (match-string-no-properties 2))
-                 (expand-file-name (match-string-no-properties 3)
-                                   default-directory))))))
+  (let ((anon-C-includes-stop nil))
+    (cdr (annon-C-includes- (buffer-file-name)))))
 
 (defun anon-C-reserved-names ()
   (append
@@ -140,7 +179,7 @@
                       (insert-file-contents f)
                       (anon-get-C-external-symbols))
                   (prog1 nil (warn "couldn't find included file %S" f))))
-              (anon-C-includes)))
+              (anon-C-includes (buffer-file-name))))
     :test #'string=)))
 
 (defun anon-literalp (string)
