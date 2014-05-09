@@ -126,9 +126,11 @@
   (cl-remove-duplicates
    (remove nil
      (mapcan (lambda (f)
-               (with-temp-buffer
-                 (insert-file-contents f)
-                 (anon-get-C-external-symbols)))
+               (if (file-exists-p f)
+                   (with-temp-buffer
+                     (insert-file-contents f)
+                     (anon-get-C-external-symbols))
+                 (prog1 nil (warn "couldn't find included file %S" f))))
              (anon-C-includes)))
    :test #'string=))
 
