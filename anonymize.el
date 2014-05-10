@@ -54,6 +54,19 @@
           (kill-buffer-query-functions nil))
       (kill-buffer))))
 
+;;;###autoload
+(defun anonymize-directory (directory)
+  "Anonymize all C files in DIRECTORY."
+  (interactive "Danonymize files in: ")
+  (mapcar (lambda (in-file)
+            (if (string-match "-anonymized\.c$" in-file)
+                in-file
+              (let ((out-file (concat (file-name-sans-extension in-file)
+                                      "-anonymized.c")))
+                (anonymize in-file out-file)
+                out-file)))
+          (directory-files directory t "^[^\.].*\.c$")))
+
 (defun anon-comments ()
   (save-excursion
     ;; remove all comments
