@@ -93,8 +93,6 @@
 
 (defvar anon-C-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.")
 
-(defvar anon-C-builtins '())
-
 (defun anon-get-C-external-symbols ()
   (save-excursion
     (mapcar
@@ -172,19 +170,31 @@
   (let ((anon-C-includes-stop nil))
     (cdr (annon-C-includes- (buffer-file-name)))))
 
+(defun anon-C-names-from-includes (includes)
+  (cl-remove-duplicates
+   (remove nil
+     (mapcan (lambda (f)
+               (if (file-exists-p f)
+                   (with-temp-buffer
+                     (insert-file-contents f)
+                     (anon-get-C-external-symbols))
+                 (prog1 nil (warn "couldn't find included file %S" f))))
+             includes))
+   :test #'string=))
+
+(defvar anon-C-builtins
+  `("EXIT_SUCCESS" "EXIT_FAILURE"
+    ,@(anon-C-names-from-includes
+       (mapcar #'anon-C-resolve-include-dir
+               (list "stdlib.h" "stdio.h" "stddef.h" "string.h" "unistd.h"))))
+  "Builtin C functions.
+Recognized by linkers even if the header isn't included, so we
+should too.")
+
 (defun anon-C-reserved-names ()
   (append
    anon-C-builtins
-   (cl-remove-duplicates
-    (remove nil
-      (mapcan (lambda (f)
-                (if (file-exists-p f)
-                    (with-temp-buffer
-                      (insert-file-contents f)
-                      (anon-get-C-external-symbols))
-                  (prog1 nil (warn "couldn't find included file %S" f))))
-              (anon-C-includes)))
-    :test #'string=)))
+   (anon-C-includes)))
 
 (defun anon-literalp (string)
   (or
