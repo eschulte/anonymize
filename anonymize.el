@@ -82,7 +82,7 @@
   "Match included file names.")
 
 (defvar anon-C-num-rx
-  "^\\([:digit:]\+\.e[:digit:]\+]\\|[[:digit:]\.A-Fa-f]\+\\|0x[0-9A-Fa-f]\+\\)$"
+  "^\\([:digit:]\+\.e[:digit:]\+]\\|[[:digit:]]\+[[:digit:]\.A-Fa-f]\+\\|0x[0-9A-Fa-f]\+\\)$"
   "Match C numbers which might look like words.")
 
 (defvar anon-C-include-dirs
