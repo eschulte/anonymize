@@ -74,7 +74,7 @@
   "Match the names of external functions or variables in a C header file.")
 
 (defvar anon-C-pound-defines-rx
-  "^# ?define \+\\([^[:space:]\n\r]\+\\)"
+  "^# *define \+\\([^[:space:]\n\r]\+\\)"
   "Match the names of macros in a C header file.")
 
 (defvar anon-C-include-rx
