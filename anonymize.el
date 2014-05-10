@@ -211,7 +211,7 @@ should too.")
                                 collect
                                 (let ((token (match-string-no-properties 1)))
                                   (when (save-excursion
-                                          (backward-char 1)
+                                          (goto-char (match-beginning 1))
                                           (let ((f (face-at-point)))
                                             (or (null f) (equal f face))))
                                     token)))))
