@@ -34,6 +34,7 @@
 
 ;;; Code:
 (require 'cl-lib)
+(require 'thingatpt)
 
 ;;;###autoload
 (defun anonymize (in-file out-file)
@@ -80,6 +81,10 @@
 (defvar anon-C-include-rx
   "\#include[[:space:]]*\\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
   "Match included file names.")
+
+(defvar anon-C-num-rx
+  "\\([:digit:]\+\.e[:digit:]\+]\\|[:digit:A-Fa-f]\+\\)"
+  "Match C numbers which might look like words.")
 
 (defvar anon-C-include-dirs
   '("/usr/include/"
@@ -242,7 +247,16 @@
                     (rep (progn (incf counter) (format "el_%d" counter))))
                 (goto-char (point-min))
                 (while (re-search-forward rx nil t)
-                  (replace-match rep nil 'literal nil 2))))
+                  (unless (save-excursion
+                            (backward-char 1)
+                            (or
+                             ;; This is really a C number
+                             (let ((wd (thing-at-point 'word)))
+                               (and wd (string-match anon-C-num-rx wd)))
+                             ;; we're in a string or an #include argument
+                             (equal (face-at-point)
+                                    'font-lock-string-face)))
+                    (replace-match rep nil 'literal nil 2)))))
             elements))))
 
 (provide 'anonymize)
