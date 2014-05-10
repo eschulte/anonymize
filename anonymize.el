@@ -194,7 +194,7 @@ should too.")
 (defun anon-C-reserved-names ()
   (append
    anon-C-builtins
-   (anon-C-includes)))
+   (anon-C-names-from-includes (anon-C-includes))))
 
 (defun anon-literalp (string)
   (or
