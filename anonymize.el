@@ -77,6 +77,10 @@
   "^# *define \+\\([^[:space:]\n\r]\+\\)"
   "Match the names of macros in a C header file.")
 
+(defvar anon-C-typedef-rx
+  "typedef[[:space:]\*]\+\\(struct[[:space:]\*]\+\\)?[^[:space:]\*]\+[[:space:]\*]\+\\([^[:space:]\*;]\+\\)"
+  "Match the names of types defined in a C header file.")
+
 (defvar anon-C-include-rx
   "\#include[[:space:]]*\\(<\\(.*\\)>\\|\"\\(.*\\)\"\\)"
   "Match included file names.")
@@ -94,21 +98,20 @@
 (defvar anon-C-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.")
 
 (defun anon-get-C-external-symbols ()
-  (save-excursion
-    (mapcar
-     (lambda (name)                          ; strip any leading stars
-       (if (string-match "^\*" name)
-           (substring name 1)
-         name))
-     (append
-      (progn
-        (goto-char (point-min))
-        (cl-loop while (re-search-forward anon-C-ext-funs-and-vars-rx nil t)
-                 collect (match-string-no-properties 2)))
-      (progn
-        (goto-char (point-min))
-        (cl-loop while (re-search-forward anon-C-pound-defines-rx nil t)
-                 collect (match-string-no-properties 1)))))))
+  (cl-flet ((collect (rx match)
+                     (goto-char (point-min))
+                     (cl-loop while (re-search-forward rx nil t)
+                              collect (match-string-no-properties match))))
+    (save-excursion
+      (mapcar
+       (lambda (name)                          ; strip any leading stars
+         (if (string-match "^\*" name)
+             (substring name 1)
+           name))
+       (append
+        (collect anon-C-ext-funs-and-vars-rx 2)
+        (collect anon-C-pound-defines-rx 1)
+        (collect anon-C-typedef-rx 2))))))
 
 (defun anon-C-resolve-include-dir (file)
   (catch 'found
