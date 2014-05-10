@@ -183,7 +183,7 @@
    :test #'string=))
 
 (defvar anon-C-builtins
-  `("EXIT_SUCCESS" "EXIT_FAILURE"
+  `("EXIT_SUCCESS" "EXIT_FAILURE" "EINVAL" "errno"
     ,@(anon-C-names-from-includes
        (mapcar #'anon-C-resolve-include-dir
                (list "stdlib.h" "stdio.h" "stddef.h" "string.h" "unistd.h"))))
