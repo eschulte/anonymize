@@ -44,10 +44,10 @@
     (find-file out-file)
     ;; remove all comments
     (anon-comments)
-    ;; enforce uniform indentation
-    (indent-region (point-min) (point-max))
     ;; re-write element (variable and function) names
     (anon-rewrite-elements)
+    ;; enforce uniform indentation
+    (indent-region (point-min) (point-max))
     ;; close up shop
     (save-buffer)
     (let ((kill-buffer-hook nil)
