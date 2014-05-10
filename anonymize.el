@@ -183,7 +183,10 @@
    :test #'string=))
 
 (defvar anon-C-builtins
-  `("EXIT_SUCCESS" "EXIT_FAILURE" "EINVAL" "errno"
+  `("main" "EXIT_SUCCESS" "EXIT_FAILURE" "EINVAL" "errno"
+    ;; types
+    "char" "double" "float" "int" "long" "ptrdiff_t" "short" "signed"
+    "size_t" "unsigned" "void"
     ,@(anon-C-names-from-includes
        (mapcar #'anon-C-resolve-include-dir
                (list "stdlib.h" "stdio.h" "stddef.h" "string.h" "unistd.h"))))
@@ -202,10 +205,9 @@ should too.")
    (string-match "^[[:digit:]]\+$" string)))
 
 (defun anon-collect-elements ()
-  (let* ((reserved (anon-C-reserved-names))
-         (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars))
-         (struct-rx (concat "struct[[:space:]\r\n]\+" word-rx)))
-    (cl-flet ((collect (rx face)
+  (let ((reserved (anon-C-reserved-names))
+        (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars)))
+    (cl-flet ((collect (rx &rest faces)
                        (goto-char (point-min))
                        (cl-loop while (re-search-forward rx nil t)
                                 collect
@@ -213,7 +215,7 @@ should too.")
                                   (when (save-excursion
                                           (goto-char (match-beginning 1))
                                           (let ((f (face-at-point)))
-                                            (or (null f) (equal f face))))
+                                            (or (null f) (member f faces))))
                                     token)))))
       (save-excursion
         (cl-remove-if
@@ -231,10 +233,11 @@ should too.")
                                           " " 'omit-nulls)))
                         (remove nil
                           (append
-                           ;; variable and function names
-                           (collect word-rx 'font-lock-variable-name-face)
-                           ;; structure names
-                           (collect struct-rx 'font-lock-type-face))))))
+                           ;; variable type and function names
+                           (collect word-rx
+                                    'font-lock-variable-name-face
+                                    'font-lock-function-name-face
+                                    'font-lock-type-face))))))
           :test #'string=))))))
 
 (defvar anon-word-wrap-regex-template
