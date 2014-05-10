@@ -227,7 +227,7 @@ should too.")
                                 (r (regexp-quote "[")))
                             (split-string (replace-regexp-in-string
                                            l " " (replace-regexp-in-string
-                                                  r " " word)) 
+                                                  r " " word))
                                           " " 'omit-nulls)))
                         (remove nil
                           (append
