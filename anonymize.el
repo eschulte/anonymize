@@ -82,7 +82,7 @@
   "Match included file names.")
 
 (defvar anon-C-num-rx
-  "^\\([:digit:]\+\.e[:digit:]\+]\\|[[:digit:]\.A-Fa-f]\+\\)$"
+  "^\\([:digit:]\+\.e[:digit:]\+]\\|[[:digit:]\.A-Fa-f]\+\\|0x[0-9A-Fa-f]\+\\)$"
   "Match C numbers which might look like words.")
 
 (defvar anon-C-include-dirs
@@ -264,10 +264,12 @@ should too.")
                                (let ((wd (buffer-substring
                                           (save-excursion
                                             (re-search-backward
-                                             "[[:space:]\r\n]" nil t)
+                                             "[[:space:]\r\n(),]" nil t)
                                             (+ 1 (point)))
-                                          (+ 1 (point)))))
-                                 (and wd (string-match anon-C-num-rx wd)))
+                                          (point))))
+                                 (and wd
+                                      (let ((case-fold-search t))
+                                        (string-match anon-C-num-rx wd))))
                                ;; we're in a string or an #include argument
                                (equal (face-at-point)
                                       'font-lock-string-face))))
