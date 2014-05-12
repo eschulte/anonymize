@@ -265,43 +265,39 @@ should too.")
   (interactive)
   (let* ((case-fold-search nil)
          (counter 0)
-         (elements (anon-collect-elements))
-         (mode major-mode))
-    (unwind-protect
-        (save-excursion
-          (fundamental-mode)
-          (goto-char (point-min))
-          ;; loop through elements, replacing them with new variable names
-          (mapc (lambda (el)
-                  (let ((rx (format anon-word-wrap-regex-template
-                                    anon-C-non-word-chars
-                                    (regexp-quote el)
-                                    anon-C-non-word-chars))
-                        (rep (progn (incf counter) (format anon-fmt counter))))
-                    (goto-char (point-min))
-                    (while (re-search-forward rx nil t)
-                      (unless (save-excursion
-                                (save-match-data
-                                  (backward-char 1)
-                                  (or
-                                   ;; This is really a C number
-                                   (let ((wd (buffer-substring
-                                              (save-excursion
-                                                (re-search-backward
-                                                 "[[:space:]\r\n(),]" nil t)
-                                                (+ 1 (point)))
-                                              (point))))
-                                     (and wd
-                                          (let ((case-fold-search t))
-                                            (string-match anon-C-num-rx wd))))
-                                   ;; we're in a string or an #include argument
-                                   (equal (face-at-point)
-                                          'font-lock-string-face)
-                                   ;; we're in a comment
-                                   (equal (face-at-point)
-                                          'font-lock-comment-face))))
-                        (replace-match rep nil 'literal nil 2)))))
-                elements))
-      (funcall mode))))
+         (elements (anon-collect-elements)))
+    (save-excursion
+      (goto-char (point-min))
+      ;; loop through elements, replacing them with new variable names
+      (mapc (lambda (el)
+              (let ((rx (format anon-word-wrap-regex-template
+                                anon-C-non-word-chars
+                                (regexp-quote el)
+                                anon-C-non-word-chars))
+                    (rep (progn (incf counter) (format anon-fmt counter))))
+                (goto-char (point-min))
+                (while (re-search-forward rx nil t)
+                  (unless (save-excursion
+                            (save-match-data
+                              (backward-char 1)
+                              (or
+                               ;; This is really a C number
+                               (let ((wd (buffer-substring
+                                          (save-excursion
+                                            (re-search-backward
+                                             "[[:space:]\r\n(),]" nil t)
+                                            (+ 1 (point)))
+                                          (point))))
+                                 (and wd
+                                      (let ((case-fold-search t))
+                                        (string-match anon-C-num-rx wd))))
+                               ;; we're in a string or an #include argument
+                               (equal (face-at-point)
+                                      'font-lock-string-face)
+                               ;; we're in a comment
+                               (equal (face-at-point)
+                                      'font-lock-comment-face))))
+                    (replace-match rep nil 'literal nil 2)))))
+            elements))))
 
 (provide 'anonymize)
