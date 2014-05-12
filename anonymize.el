@@ -259,6 +259,8 @@ should too.")
 (defvar anon-word-wrap-regex-template
   "\\(^\\|[%s]\\|\\[\\)\\(%s\\)\\([%s]\\|$\\|\\[\\|\\]\\)")
 
+(defvar anon-fmt "_%d" "Format string to name anonymized elements.")
+
 (defun anon-rewrite-elements ()
   (interactive)
   (let* ((case-fold-search nil)
@@ -275,7 +277,7 @@ should too.")
                                     anon-C-non-word-chars
                                     (regexp-quote el)
                                     anon-C-non-word-chars))
-                        (rep (progn (incf counter) (format "el_%d" counter))))
+                        (rep (progn (incf counter) (format anon-fmt counter))))
                     (goto-char (point-min))
                     (while (re-search-forward rx nil t)
                       (unless (save-excursion
