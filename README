@@ -12,3 +12,4 @@ REQUIREMENTS
 
 USAGE
     M-x anonymize
+    M-x anonymize-directory
