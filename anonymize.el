@@ -35,37 +35,50 @@
 ;;; Code:
 (require 'cl-lib)
 
+
+(defvar *anon-current-file* nil
+  "Bound locally for better error messages.")
+
+(defvar anon-supported-modes '(c-mode tuareg-mode)
+  "Major modes currently supported for anonymization.")
+
 ;;;###autoload
 (defun anonymize (in-file out-file)
   "Write anonymized contents of IN-FILE to OUT-FILE."
   (interactive "finput file: \nGoutput file: ")
   (copy-file in-file out-file)
-  (save-window-excursion
-    (find-file out-file)
-    ;; remove all comments
-    (anon-comments)
-    ;; re-write element (variable and function) names
-    (anon-rewrite-elements)
-    ;; enforce uniform indentation
-    (indent-region (point-min) (point-max))
-    ;; close up shop
-    (save-buffer)
-    (let ((kill-buffer-hook nil)
-          (kill-buffer-query-functions nil))
-      (kill-buffer))))
+  (let ((*anon-current-file* out-file))
+    (save-window-excursion
+      (find-file out-file)
+      (font-lock-mode 1)
+      (unless (member major-mode anon-supported-modes)
+        (error "Anonymization not supported for %s" major-mode))
+      (message "anonymizing for %S with %S" major-mode font-lock-mode)
+      ;; remove all comments
+      (anon-comments)
+      ;; re-write element (variable and function) names
+      (anon-rewrite-elements)
+      ;; enforce uniform indentation
+      (indent-region (point-min) (point-max))
+      ;; close up shop
+      (save-buffer)
+      (let ((kill-buffer-hook nil)
+            (kill-buffer-query-functions nil))
+        (kill-buffer)))))
 
 ;;;###autoload
 (defun anonymize-directory (directory)
-  "Anonymize all C files in DIRECTORY."
+  "Anonymize all source files in DIRECTORY."
   (interactive "Danonymize files in: ")
   (mapcar (lambda (in-file)
-            (if (string-match "-anonymized\.c$" in-file)
+            (if (string-match "-anonymized\.\\(c\\|ml\\)$" in-file)
                 in-file
               (let ((out-file (concat (file-name-sans-extension in-file)
-                                      "-anonymized.c")))
+                                      "-anonymized."
+                                      (file-name-extension in-file))))
                 (anonymize in-file out-file)
                 out-file)))
-          (directory-files directory t "^[^\.].*\.c$")))
+          (directory-files directory t "^[^\.].*\.\\(c\\|ml\\)$")))
 
 (defun anon-comments ()
   (save-excursion
@@ -78,6 +91,47 @@
     (while (and (re-search-forward "^$" nil t)
                 (< (point) (point-max)))
       (delete-char 1))))
+
+(defvar anon-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.")
+
+(defun anon-rewrite-elements ()
+  (interactive)
+  (let* ((case-fold-search nil)
+         (counter 0)
+         (elements (case major-mode
+                     (c-mode (anon-C-collect-elements))
+                     (tuareg-mode (anon-ocaml-collect-elements)))))
+    (when (null elements)
+      (warn "no elements to anonymize in %s" *anon-current-file*))
+    (save-excursion
+      (goto-char (point-min))
+      ;; loop through elements, replacing them with new variable names
+      (mapc (lambda (el)
+              (let ((rx (format anon-word-wrap-regex-template
+                                anon-non-word-chars
+                                (regexp-quote el)
+                                anon-non-word-chars))
+                    (rep (progn (incf counter) (format anon-fmt counter))))
+                (goto-char (point-min))
+                (while (re-search-forward rx nil t)
+                  (unless (save-excursion
+                            (save-match-data
+                              (backward-char 1)
+                              (or
+                               (anon-on-a-c-number)
+                               ;; we're in a string or an #include argument
+                               (equal (face-at-point)
+                                      'font-lock-string-face)
+                               ;; we're in a comment
+                               (equal (face-at-point)
+                                      'font-lock-comment-face))))
+                    (replace-match rep nil 'literal nil 2)))))
+            elements))))
+
+(defun anon-on-a-number ()
+  (ecase major-mode
+    (c-mode (anon-on-a-c-number))
+    (:otherwise nil)))
 
 
 ;;; C-specific
@@ -107,8 +161,6 @@
     "/usr/include/linux"
     "/usr/include/unistring")
   "Paths to standard C libraries.")
-
-(defvar anon-C-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.")
 
 (defun anon-get-C-external-symbols ()
   (cl-flet ((collect (rx match)
@@ -220,9 +272,9 @@ should too.")
    ;; integer literal
    (string-match "^[[:digit:]]\+$" string)))
 
-(defun anon-collect-elements ()
+(defun anon-C-collect-elements ()
   (let ((reserved (anon-C-reserved-names))
-        (word-rx (format "\\([^%s]\+\\)" anon-C-non-word-chars)))
+        (word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
     (cl-flet ((collect (rx &rest faces)
                        (goto-char (point-min))
                        (cl-loop while (re-search-forward rx nil t)
@@ -261,43 +313,71 @@ should too.")
 
 (defvar anon-fmt "_%d" "Format string to name anonymized elements.")
 
-(defun anon-rewrite-elements ()
-  (interactive)
-  (let* ((case-fold-search nil)
-         (counter 0)
-         (elements (anon-collect-elements)))
-    (save-excursion
-      (goto-char (point-min))
-      ;; loop through elements, replacing them with new variable names
-      (mapc (lambda (el)
-              (let ((rx (format anon-word-wrap-regex-template
-                                anon-C-non-word-chars
-                                (regexp-quote el)
-                                anon-C-non-word-chars))
-                    (rep (progn (incf counter) (format anon-fmt counter))))
-                (goto-char (point-min))
-                (while (re-search-forward rx nil t)
-                  (unless (save-excursion
-                            (save-match-data
-                              (backward-char 1)
-                              (or
-                               ;; This is really a C number
-                               (let ((wd (buffer-substring
-                                          (save-excursion
-                                            (re-search-backward
-                                             "[[:space:]\r\n(),]" nil t)
-                                            (+ 1 (point)))
-                                          (point))))
-                                 (and wd
-                                      (let ((case-fold-search t))
-                                        (string-match anon-C-num-rx wd))))
-                               ;; we're in a string or an #include argument
-                               (equal (face-at-point)
-                                      'font-lock-string-face)
-                               ;; we're in a comment
-                               (equal (face-at-point)
-                                      'font-lock-comment-face))))
-                    (replace-match rep nil 'literal nil 2)))))
-            elements))))
+(defun anon-on-a-c-number ()
+  (let ((wd (buffer-substring
+             (save-excursion
+               (re-search-backward
+                "[[:space:]\r\n(),]" nil t)
+               (+ 1 (point)))
+             (point))))
+    (and wd
+         (let ((case-fold-search t))
+           (string-match anon-C-num-rx wd)))))
+
+
+;;; ocaml-specific
+(defun anon-ocaml-collect-elements ()
+  ;; This may be required to get tuareg-mode to actually do
+  ;; fontification.
+  (sit-for 0.01)
+  (append
+   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
+     (cl-remove-duplicates
+      (remove nil
+        ;; variable type and function names
+        (save-excursion
+          (goto-char (point-min))
+          (cl-loop
+           while (re-search-forward word-rx nil t)
+           collect
+           (let ((token (match-string-no-properties 1)))
+             (when (save-excursion
+                     (goto-char (match-beginning 1))
+                     (member (face-at-point)
+                             '(font-lock-variable-name-face
+                               font-lock-function-name-face
+                               font-lock-type-name-face)))
+               token)))))
+      :test #'string=))
+   (anon-ocaml-collect-types-w-fields)
+   (anon-ocaml-collect-modules)))
+
+(defun anon-ocaml-collect-types-w-fields ()
+  (let ((type-rx (format "type \\([^%s]\+\\) =" anon-non-word-chars))
+        (fields-rx "[[:space:]]*{\\([^}]\+\\)}[[:space:]]*;;"))
+    (goto-char (point-min))
+    (apply #'append
+           (cl-loop
+            while (re-search-forward type-rx nil t)
+            collect
+            (when (save-excursion
+                    (goto-char (match-beginning 1))
+                    (equal (face-at-point) 'font-lock-type-face))
+              (cons (match-string-no-properties 1)
+                    ;; possibly collect field names
+                    (save-match-data
+                      (when (looking-at fields-rx)
+                        (let ((body (match-string-no-properties 1))
+                              (space "[[:space:]]*"))
+                          (mapcar (lambda (f) (car (split-string f ":" 'omit space)))
+                                  (split-string body ";" 'omit space)))))))))))
+
+(defun anon-ocaml-collect-modules ()
+  (let ((module-rx (format "module \\([^%s]\+\\) =" anon-non-word-chars)))
+    (goto-char (point-min))
+    (cl-loop while (re-search-forward module-rx nil t)
+             when (save-excursion (goto-char (match-beginning 1))
+                                  (equal (face-at-point) 'font-lock-type-face))
+             collect (match-string-no-properties 1))))
 
 (provide 'anonymize)
