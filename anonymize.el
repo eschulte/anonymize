@@ -29,7 +29,7 @@
 
 ;;; Commentary:
 
-;; Currently focused only on C source files.
+;; Currently focused only on C and OCaml source files.
 ;; Will probably generalize across languages as the need arises.
 
 ;;; Code:
