@@ -71,13 +71,17 @@
   "Anonymize all source files in DIRECTORY."
   (interactive "Danonymize files in: ")
   (mapcar (lambda (in-file)
-            (if (string-match "-anonymized\.\\(c\\|ml\\)$" in-file)
-                in-file
-              (let ((out-file (concat (file-name-sans-extension in-file)
-                                      "-anonymized."
-                                      (file-name-extension in-file))))
-                (anonymize in-file out-file)
-                out-file)))
+            (let* ((ext (file-name-extension in-file))
+                   (postfix (cond
+                             ((string= ext "c") "-anonymized")
+                             ((string= ext "ml") "_anonymized")))
+                   (rx (format "%s\.%s$" postfix ext)))
+              (if (string-match rx in-file)
+                  in-file
+                (let ((out-file (concat (file-name-sans-extension in-file)
+                                        postfix "." ext)))
+                  (anonymize in-file out-file)
+                  out-file))))
           (directory-files directory t "^[^\.].*\.\\(c\\|ml\\)$")))
 
 (defun anon-comments ()
@@ -98,7 +102,10 @@
   (interactive)
   (let* ((case-fold-search nil)
          (counter 0)
-         (elements (case major-mode
+         (fmt (ecase major-mode
+                (c-mode "_%d")
+                (tuareg-mode "a%d")))
+         (elements (ecase major-mode
                      (c-mode (anon-C-collect-elements))
                      (tuareg-mode (anon-ocaml-collect-elements)))))
     (when (null elements)
@@ -111,7 +118,7 @@
                                 anon-non-word-chars
                                 (regexp-quote el)
                                 anon-non-word-chars))
-                    (rep (progn (incf counter) (format anon-fmt counter))))
+                    (rep (progn (incf counter) (format fmt counter))))
                 (goto-char (point-min))
                 (while (re-search-forward rx nil t)
                   (unless (save-excursion
@@ -310,8 +317,6 @@ should too.")
 
 (defvar anon-word-wrap-regex-template
   "\\(^\\|[%s]\\|\\[\\)\\(%s\\)\\([%s]\\|$\\|\\[\\|\\]\\)")
-
-(defvar anon-fmt "_%d" "Format string to name anonymized elements.")
 
 (defun anon-on-a-c-number ()
   (let ((wd (buffer-substring
