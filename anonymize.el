@@ -350,12 +350,9 @@ should too.")
   (apply #'append
          (mapcar (lambda (file)
                    (when (file-exists-p file)
-                     (let ((base (file-name-nondirectory
-                                  (file-name-sans-extension file))))
-                       (mapcar (lambda (symbol) (cons base symbol))
-                               (with-temp-buffer
-                                 (insert-file-contents file)
-                                 (anon-get-ocaml-external-symbols))))))
+                     (with-temp-buffer
+                       (insert-file-contents file)
+                       (anon-get-ocaml-external-symbols))))
                  (directory-files anon-ocaml-lib-dir 'full ".\+\\.ml"))))
 
 (defun anon-ocaml-on-reserved-module-method ()
