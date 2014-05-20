@@ -335,54 +335,63 @@ should too.")
   ;; This may be required to get tuareg-mode to actually do
   ;; fontification.
   (sit-for 0.01)
-  (append
-   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
-     (cl-remove-duplicates
-      (remove nil
-        ;; variable type and function names
-        (save-excursion
-          (goto-char (point-min))
-          (cl-loop
-           while (re-search-forward word-rx nil t)
-           collect
-           (let ((token (match-string-no-properties 1)))
-             (when (save-excursion
-                     (goto-char (match-beginning 1))
-                     (member (face-at-point)
-                             '(font-lock-variable-name-face
-                               font-lock-function-name-face
-                               font-lock-type-name-face)))
-               token)))))
-      :test #'string=))
-   (anon-ocaml-collect-types-w-fields)
-   (anon-ocaml-collect-modules)))
+  (let ((reserved (list "compare" "partition")))
+    (cl-remove-if (lambda (el) (member el reserved))
+                  (append
+                   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
+                     (cl-remove-duplicates
+                      (remove nil
+                        ;; variable type and function names
+                        (save-excursion
+                          (goto-char (point-min))
+                          (cl-loop
+                           while (re-search-forward word-rx nil t)
+                           collect
+                           (let ((token (match-string-no-properties 1)))
+                             (when (save-excursion
+                                     (goto-char (match-beginning 1))
+                                     (member (face-at-point)
+                                             '(font-lock-variable-name-face
+                                               font-lock-function-name-face
+                                               font-lock-type-name-face)))
+                               token)))))
+                      :test #'string=))
+                   (anon-ocaml-collect-types-w-fields)
+                   (anon-ocaml-collect-modules)))))
 
 (defun anon-ocaml-collect-types-w-fields ()
   (let ((type-rx (format "type \\([^%s]\+\\) =" anon-non-word-chars))
-        (fields-rx "[[:space:]]*{\\([^}]\+\\)}[[:space:]]*;;"))
+        (fields-rx "[[:space:]]*{\\([^}]\+\\)}[[:space:]]*;;")
+        (reserved (list "t")))
     (goto-char (point-min))
-    (apply #'append
-           (cl-loop
-            while (re-search-forward type-rx nil t)
-            collect
-            (when (save-excursion
-                    (goto-char (match-beginning 1))
-                    (equal (face-at-point) 'font-lock-type-face))
-              (cons (match-string-no-properties 1)
-                    ;; possibly collect field names
-                    (save-match-data
-                      (when (looking-at fields-rx)
-                        (let ((body (match-string-no-properties 1))
-                              (space "[[:space:]]*"))
-                          (mapcar (lambda (f) (car (split-string f ":" 'omit space)))
-                                  (split-string body ";" 'omit space)))))))))))
+    (cl-remove-if
+     (lambda (el) (member el reserved))
+     (apply
+      #'append
+      (cl-loop
+       while (re-search-forward type-rx nil t)
+       collect
+       (when (save-excursion
+               (goto-char (match-beginning 1))
+               (equal (face-at-point) 'font-lock-type-face))
+         (cons (match-string-no-properties 1)
+               ;; possibly collect field names
+               (save-match-data
+                 (when (looking-at fields-rx)
+                   (let ((body (match-string-no-properties 1))
+                         (space "[[:space:]]*"))
+                     (mapcar (lambda (f) (car (split-string f ":" 'omit space)))
+                             (split-string body ";" 'omit space))))))))))))
 
 (defun anon-ocaml-collect-modules ()
-  (let ((module-rx (format "module \\([^%s]\+\\) =" anon-non-word-chars)))
+  (let ((module-rx (format "module \\([^%s]\+\\) =" anon-non-word-chars))
+        (reserved nil))
     (goto-char (point-min))
-    (cl-loop while (re-search-forward module-rx nil t)
-             when (save-excursion (goto-char (match-beginning 1))
-                                  (equal (face-at-point) 'font-lock-type-face))
-             collect (match-string-no-properties 1))))
+    (cl-remove-if
+     (lambda (el) (member el reserved))
+     (cl-loop while (re-search-forward module-rx nil t)
+              when (save-excursion (goto-char (match-beginning 1))
+                                   (equal (face-at-point) 'font-lock-type-face))
+              collect (match-string-no-properties 1)))))
 
 (provide 'anonymize)
