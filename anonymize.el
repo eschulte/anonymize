@@ -96,7 +96,7 @@
                 (< (point) (point-max)))
       (delete-char 1))))
 
-(defvar anon-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.")
+(defvar anon-non-word-chars "-+\/\\%*&|!^=><\?:;(),[:space:]#{}\r\n\.@")
 
 (defun anon-rewrite-elements ()
   (interactive)
@@ -169,21 +169,23 @@
     "/usr/include/unistring")
   "Paths to standard C libraries.")
 
+(defun anon-collect (rx match)
+  (save-excursion
+    (goto-char (point-min))
+    (cl-loop while (re-search-forward rx nil t)
+             collect (match-string-no-properties match))))
+
 (defun anon-get-C-external-symbols ()
-  (cl-flet ((collect (rx match)
-                     (goto-char (point-min))
-                     (cl-loop while (re-search-forward rx nil t)
-                              collect (match-string-no-properties match))))
-    (save-excursion
-      (mapcar
-       (lambda (name)                          ; strip any leading stars
-         (if (string-match "^\*" name)
-             (substring name 1)
-           name))
-       (append
-        (collect anon-C-ext-funs-and-vars-rx 2)
-        (collect anon-C-pound-defines-rx 1)
-        (collect anon-C-typedef-rx 2))))))
+  (save-excursion
+    (mapcar
+     (lambda (name)                          ; strip any leading stars
+       (if (string-match "^\*" name)
+           (substring name 1)
+         name))
+     (append
+      (anon-collect anon-C-ext-funs-and-vars-rx 2)
+      (anon-collect anon-C-pound-defines-rx 1)
+      (anon-collect anon-C-typedef-rx 2)))))
 
 (defun anon-C-resolve-include-dir (file)
   (catch 'found
@@ -331,6 +333,24 @@ should too.")
 
 
 ;;; ocaml-specific
+(defvar anon-ocaml-ext-funs-and-vars
+  (format "let[[:space:]]\+\\(rec[[:space:]]\+\\)?\\([^%s]\+\\)"
+          anon-non-word-chars))
+
+(defvar anon-ocaml-lib-dir "/usr/lib/ocaml")
+
+(defun anon-get-ocaml-external-symbols ()
+  (anon-collect anon-ocaml-ext-funs-and-vars 2))
+
+(defvar anon-ocaml-reserved-words
+  (apply #'append
+         (mapcar (lambda (file)
+                   (when (file-exists-p file)
+                     (with-temp-buffer
+                       (insert-file-contents file)
+                       (anon-get-ocaml-external-symbols))))
+                 (directory-files anon-ocaml-lib-dir 'full ".\+\\.ml"))))
+
 (defun anon-ocaml-collect-by-face (&rest faces)
   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
     (cl-remove-duplicates
@@ -352,14 +372,14 @@ should too.")
   ;; This may be required to get tuareg-mode to actually do
   ;; fontification.
   (sit-for 0.01)
-  (let ((reserved (list "compare" "partition")))
-    (cl-remove-if (lambda (el) (member el reserved))
-                  (append (anon-ocaml-collect-by-face
-                           'font-lock-variable-name-face
-                           'font-lock-function-name-face
-                           'font-lock-type-name-face)
-                          (anon-ocaml-collect-types-w-fields)
-                          (anon-ocaml-collect-modules)))))
+  (append
+   (anon-ocaml-collect-by-face
+    'font-lock-variable-name-face
+    'font-lock-type-name-face)
+   (cl-remove-if (lambda (el) (member el anon-ocaml-reserved-words))
+                 (anon-ocaml-collect-by-face 'font-lock-function-name-face))
+   (anon-ocaml-collect-types-w-fields)
+   (anon-ocaml-collect-modules)))
 
 (defun anon-ocaml-collect-types-w-fields ()
   (let ((type-rx (format "type \\([^%s]\+\\) =" anon-non-word-chars))
