@@ -376,6 +376,9 @@ should too.")
    (anon-ocaml-collect-by-face
     'font-lock-variable-name-face
     'font-lock-type-name-face)
+   ;; TODO: instead of removing reserved words here, better to...
+   ;;       1. match each reserved word with the module name
+   ;;       2. when replacing, don't replace reserved module methods
    (cl-remove-if (lambda (el) (member el anon-ocaml-reserved-words))
                  (anon-ocaml-collect-by-face 'font-lock-function-name-face))
    (anon-ocaml-collect-types-w-fields)
