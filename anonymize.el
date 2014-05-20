@@ -331,33 +331,35 @@ should too.")
 
 
 ;;; ocaml-specific
+(defun anon-ocaml-collect-by-face (&rest faces)
+  (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
+    (cl-remove-duplicates
+     (remove nil
+       ;; variable type and function names
+       (save-excursion
+         (goto-char (point-min))
+         (cl-loop
+          while (re-search-forward word-rx nil t)
+          collect
+          (let ((token (match-string-no-properties 1)))
+            (when (save-excursion
+                    (goto-char (match-beginning 1))
+                    (member (face-at-point) faces))
+              token)))))
+     :test #'string=)))
+
 (defun anon-ocaml-collect-elements ()
   ;; This may be required to get tuareg-mode to actually do
   ;; fontification.
   (sit-for 0.01)
   (let ((reserved (list "compare" "partition")))
     (cl-remove-if (lambda (el) (member el reserved))
-                  (append
-                   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
-                     (cl-remove-duplicates
-                      (remove nil
-                        ;; variable type and function names
-                        (save-excursion
-                          (goto-char (point-min))
-                          (cl-loop
-                           while (re-search-forward word-rx nil t)
-                           collect
-                           (let ((token (match-string-no-properties 1)))
-                             (when (save-excursion
-                                     (goto-char (match-beginning 1))
-                                     (member (face-at-point)
-                                             '(font-lock-variable-name-face
-                                               font-lock-function-name-face
-                                               font-lock-type-name-face)))
-                               token)))))
-                      :test #'string=))
-                   (anon-ocaml-collect-types-w-fields)
-                   (anon-ocaml-collect-modules)))))
+                  (append (anon-ocaml-collect-by-face
+                           'font-lock-variable-name-face
+                           'font-lock-function-name-face
+                           'font-lock-type-name-face)
+                          (anon-ocaml-collect-types-w-fields)
+                          (anon-ocaml-collect-modules)))))
 
 (defun anon-ocaml-collect-types-w-fields ()
   (let ((type-rx (format "type \\([^%s]\+\\) =" anon-non-word-chars))
