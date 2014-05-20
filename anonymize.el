@@ -121,17 +121,21 @@
                     (rep (progn (incf counter) (format fmt counter))))
                 (goto-char (point-min))
                 (while (re-search-forward rx nil t)
-                  (unless (save-excursion
-                            (save-match-data
-                              (backward-char 1)
-                              (or
-                               (anon-on-a-c-number)
+                  (unless
+                      (save-match-data
+                        (or
+                         ;; general checks across all languages
+                         (save-excursion
+                           (backward-char 1)
+                           (or (anon-on-a-c-number)
                                ;; we're in a string or an #include argument
-                               (equal (face-at-point)
-                                      'font-lock-string-face)
+                               (equal (face-at-point) 'font-lock-string-face)
                                ;; we're in a comment
-                               (equal (face-at-point)
-                                      'font-lock-comment-face))))
+                               (equal (face-at-point) 'font-lock-comment-face)))
+                         ;; language specific checks
+                         (case major-mode
+                           (tuareg-mode ; OCaml skip known module methods
+                            (anon-ocaml-on-reserved-module-method)))))
                     (replace-match rep nil 'literal nil 2)))))
             elements))))
 
@@ -354,6 +358,11 @@ should too.")
                                  (anon-get-ocaml-external-symbols))))))
                  (directory-files anon-ocaml-lib-dir 'full ".\+\\.ml"))))
 
+(defun anon-ocaml-on-reserved-module-method ()
+  "Return non-nil if point is on a known module method."
+  ;; something like [A-Z][word]\.knwon_method
+  )
+
 (defun anon-ocaml-collect-by-face (&rest faces)
   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
     (cl-remove-duplicates
@@ -379,11 +388,7 @@ should too.")
    (anon-ocaml-collect-by-face
     'font-lock-variable-name-face
     'font-lock-type-name-face)
-   ;; TODO: instead of removing reserved words here, better to...
-   ;;       1. match each reserved word with the module name
-   ;;       2. when replacing, don't replace reserved module methods
-   (cl-remove-if (lambda (el) (member el anon-ocaml-reserved-words))
-                 (anon-ocaml-collect-by-face 'font-lock-function-name-face))
+   (anon-ocaml-collect-by-face 'font-lock-function-name-face)
    (anon-ocaml-collect-types-w-fields)
    (anon-ocaml-collect-modules)))
 
