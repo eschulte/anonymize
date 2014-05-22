@@ -354,6 +354,14 @@ should too.")
                        (anon-get-ocaml-external-symbols))))
                  (directory-files anon-ocaml-lib-dir 'full ".\+\\.ml"))))
 
+(defvar anon-ocaml-pervasives
+  (let ((file (expand-file-name "pervasives.ml" anon-ocaml-lib-dir)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (anon-collect (format "external[[:space:]]\+\\([^%s]\+\\)"
+                              anon-non-word-chars) 1)))))
+
 (defun anon-ocaml-after-reserved-word ()
   (save-excursion
     (let ((start (point)))
@@ -386,13 +394,14 @@ should too.")
   ;; This may be required to get tuareg-mode to actually do
   ;; fontification.
   (sit-for 0.01)
-  (append
-   (anon-ocaml-collect-by-face
-    'font-lock-variable-name-face
-    'font-lock-type-name-face)
-   (anon-ocaml-collect-by-face 'font-lock-function-name-face)
-   (anon-ocaml-collect-types-w-fields)
-   (anon-ocaml-collect-modules)))
+  (cl-remove-if (lambda (el) (member el anon-ocaml-pervasives))
+                (append
+                 (anon-ocaml-collect-by-face
+                  'font-lock-variable-name-face
+                  'font-lock-type-name-face)
+                 (anon-ocaml-collect-by-face 'font-lock-function-name-face)
+                 (anon-ocaml-collect-types-w-fields)
+                 (anon-ocaml-collect-modules))))
 
 (defun anon-ocaml-collect-types-w-fields ()
   (let ((type-rx (format "type \\([^%s]\+\\) =" anon-non-word-chars))
