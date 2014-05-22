@@ -357,8 +357,19 @@ should too.")
 
 (defun anon-ocaml-on-reserved-module-method ()
   "Return non-nil if point is on a known module method."
-  ;; something like [A-Z][word]\.knwon_method
-  )
+  (let ((start (point)))
+    (save-match-data
+      (save-excursion
+        (and
+         ;; 1. search backwards for module method
+         (re-search-backward (format "\.\\([^%s]\+\\)[%s]"
+                                     anon-non-word-chars
+                                     anon-non-word-chars)
+                             nil t)
+         ;; 2. check that method name is reserved
+         (member (match-string 1) anon-ocaml-reserved-words)
+         ;; 3. check that point is on original point
+         (equal (match-end 1) start))))))
 
 (defun anon-ocaml-collect-by-face (&rest faces)
   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
