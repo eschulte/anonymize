@@ -123,19 +123,18 @@
                 (while (re-search-forward rx nil t)
                   (unless
                       (save-match-data
+                        (backward-char 1)
                         (or
                          ;; general checks across all languages
-                         (save-excursion
-                           (backward-char 1)
-                           (or (anon-on-a-c-number)
-                               ;; we're in a string or an #include argument
-                               (equal (face-at-point) 'font-lock-string-face)
-                               ;; we're in a comment
-                               (equal (face-at-point) 'font-lock-comment-face)))
+                         (or (anon-on-a-c-number)
+                             ;; we're in a string or an #include argument
+                             (equal (face-at-point) 'font-lock-string-face)
+                             ;; we're in a comment
+                             (equal (face-at-point) 'font-lock-comment-face))
                          ;; language specific checks
                          (case major-mode
                            (tuareg-mode ; OCaml skip known module methods
-                            (anon-ocaml-on-reserved-module-method)))))
+                            (anon-ocaml-after-reserved-word)))))
                     (replace-match rep nil 'literal nil 2)))))
             elements))))
 
@@ -355,21 +354,16 @@ should too.")
                        (anon-get-ocaml-external-symbols))))
                  (directory-files anon-ocaml-lib-dir 'full ".\+\\.ml"))))
 
-(defun anon-ocaml-on-reserved-module-method ()
-  "Return non-nil if point is on a known module method."
-  (let ((start (point)))
-    (save-match-data
-      (save-excursion
-        (and
-         ;; 1. search backwards for module method
-         (re-search-backward (format "\.\\([^%s]\+\\)[%s]"
-                                     anon-non-word-chars
-                                     anon-non-word-chars)
-                             nil t)
-         ;; 2. check that method name is reserved
-         (member (match-string 1) anon-ocaml-reserved-words)
-         ;; 3. check that point is on original point
-         (equal (match-end 1) start))))))
+(defun anon-ocaml-after-reserved-word ()
+  (save-excursion
+    (let ((start (point)))
+      (and
+       (re-search-backward (format "\\.\\([^%s]\+\\)"
+                                   anon-non-word-chars
+                                   anon-non-word-chars)
+                           nil t)
+       (member (match-string 1) anon-ocaml-reserved-words)
+       (equal (match-end 1) start)))))
 
 (defun anon-ocaml-collect-by-face (&rest faces)
   (let ((word-rx (format "\\([^%s]\+\\)" anon-non-word-chars)))
