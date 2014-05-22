@@ -336,6 +336,12 @@ should too.")
 
 
 ;;; ocaml-specific
+;;
+;; NOTE: In some cases involving structs ocaml anonymization may cause
+;;       a valid file to no longer compile.
+;;
+;; TODO: fix handling of structs with field names
+;;
 (defvar anon-ocaml-ext-funs-and-vars
   (format "let[[:space:]]\+\\(rec[[:space:]]\+\\)?\\([^%s]\+\\)"
           anon-non-word-chars))
